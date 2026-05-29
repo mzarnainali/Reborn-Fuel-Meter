@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalStorage Export</title>
+
+     <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        #keyList {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #keyList li {
+            margin: 5px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #keyList li:hover {
+            background-color: #e0e0e0;
+        }
+
+        .deleteButton {
+            background-color: #ff6666;
+            color: #fff;
+            padding: 5px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+</head>
+<body>
+
+<!-- Display a list of stored keys -->
+<ul id="keyList"></ul>
+
+<script>
+function convertToCSV(objArray) {
+    var array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
+    var str = '';
+
+    // Add header row
+    for (var i = 0; i < array.length; i++) {
+        var line = '';
+        for (var index in array[i]) {
+            if (line !== '') line += ',';
+            line += index;
+        }
+        str += line + '\r\n';
+        break;
+    }
+
+    // Add data rows
+    for (var i = 0; i < array.length; i++) {
+        var line = '';
+        for (var index in array[i]) {
+            if (line !== '') line += ',';
+            line += array[i][index];
+        }
+        str += line + '\r\n';
+    }
+
+    return str;
+}
+
+function exportToCSV(key) {
+    var objRecords = JSON.parse(localStorage.getItem(key)) || [];
+
+    // Convert objRecords to CSV format
+    var csvString = convertToCSV(objRecords);
+
+    // Create a Blob from the CSV string
+    var blob = new Blob([csvString], { type: 'text/csv' });
+
+    // Create a link element
+    var link = document.createElement('a');
+
+    // Set the download attribute with the key as the filename and create a URL from the Blob
+    link.download = `${key}.csv`;
+    link.href = URL.createObjectURL(blob);
+
+    // Append the link to the document
+    document.body.appendChild(link);
+
+    // Trigger a click on the link to start the download
+    link.click();
+
+    // Remove the link from the document
+    document.body.removeChild(link);
+}
+
+function deleteKeyRecord(key, listItem) {
+    // Remove the key from localStorage
+    localStorage.removeItem(key);
+
+    // Remove the corresponding list item from the DOM
+    keyList.removeChild(listItem);
+}
+
+// Populate the list of keys
+// Populate the sorted list of keys with sizes
+var keys = Object.keys(localStorage);
+var sortedKeys = keys.filter(key => key.startsWith('objRecords_')).sort((a, b) => {
+    // Extract the date and time portion and convert to Date objects for comparison
+    var dateA = new Date(a.split('_')[1]);
+    var dateB = new Date(b.split('_')[1]);
+    return dateB - dateA; // Sort in descending order (most recent first)
+});
+
+var keyList = document.getElementById('keyList');
+sortedKeys.forEach(key => {
+    var listItem = document.createElement('li');
+    var sizeInBytes = localStorage.getItem(key).length;
+    var sizeInKB = (sizeInBytes / 1024).toFixed(2);
+
+    listItem.innerHTML = `<span>${key}</span><span>${sizeInKB} KB</span><button class="deleteButton">Delete</button>`;
+    listItem.style.cursor = 'pointer';
+    
+    // Add event listener to the delete button
+    listItem.querySelector('.deleteButton').addEventListener('click', function(event) {
+        // Stop the event from propagating to the list item
+        event.stopPropagation();
+        deleteKeyRecord(key, listItem);
+    });
+
+    listItem.addEventListener('click', function() {
+        exportToCSV(key);
+    });
+    keyList.appendChild(listItem);
+});
+</script>
+
+</body>
+</html>

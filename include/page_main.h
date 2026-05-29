@@ -1,0 +1,486 @@
+const char P_MAIN_PAGE[] PROGMEM = R"rawliteral(
+  <!DOCTYPE html>
+<html>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<head>
+	<title>Zarnain</title>
+	<style>
+	body {
+		padding-bottom: 400px !important;
+		/* Adjust as needed for your screen */
+	}
+	
+	* {
+		box-sizing: border-box;
+	}
+	
+	.row {
+		display: flex;
+	}
+	/* Create two equal columns that sits next to each other */
+	
+	.column {
+		flex: 50%;
+		padding: 10px;
+		height: 300px;
+		/* Should be removed. Only for demonstration */
+	}
+	
+	:root {
+		--gear: '6';
+	}
+	
+	div {
+		font-size: 20px;
+		font-weight: bold;
+		padding: 2px;
+	}
+	
+	button {
+		min-width: 100px;
+	}
+	
+	.hlight {
+		font-size: 2rem;
+		background: #673AB7;
+		padding: 0 20px;
+		color: #ffffff;
+		border-radius: 20px;
+		min-width: 90px;
+		display: inline-block;
+		text-align: center;
+	}
+	</style>
+</head>
+<body> <a href="/dash"> Dashboard </a> | <a href="/json"> All Data </a> | <a href="/datalog"> Data Log </a> | <a href="/export"> Data Log Export </a> | <a href="/ota_update"> OTA Update </a> &nbsp&nbsp&nbsp&nbsp&nbsp
+	<input type="checkbox" id="record_log" name="record_log" value="N" onchange="saveCheckboxState()">
+	<label for="record_log"> Record Log</label>
+	<div class="row">
+		<div class="column">
+			<div>Gear: <span id="gear">0</span></div>
+			<div>Converter Lockup: <span id="con_loc">0</span></div>
+			<div>RPM: <span id="rpm" class="hlight">0</span></div>
+			<div>Speed: <span id="speed">0</span></div>
+			<div>Inj: <span id="inj">0</span></div>
+			<div>Inj Duty%: <span id="duty_cycle">0</span></div>
+			<div>L/h: <span id="lph" class="hlight">0</span></div>
+			<div>Instant Km/L: <span id="kml" class="hlight">0</span></div>
+			<div>Avg Km/L: <span id="avg_kml">0</span></div>
+			<div>g Froce: <span id="g_force">0</span></div>
+			<div>VSS1 PULS: <span id="vss1">0</span></div>
+		</div>
+		<div class="column">
+			<div>O2 Relay: <span id="relay">0</span></div>
+			<div>O2 Value:
+				<input type="number" id="o2_val" name="o2_val" value=""></input>
+				<button onclick=updateO2()> Update O2</button>
+			</div>
+			<br>
+			<button onclick=relay_on()> Turn On O2</button>
+			<button onclick=relay_off()> Turn Off O2</button>
+			<!-- <hr>
+            <div>VSS Spoof: <span id="vss_spoof">0</span></div>
+            <div>Spoof %: <input type="number" id="spoof_val" name="spoof_val" value="0"></input>
+                <button onclick=update_spoof()> Update Spoof Value</button>
+            </div><br>
+            <button onclick=spoof_on()> Turn On Spoof</button>
+            <button onclick=spoof_off()> Turn Off Spoof</button>
+            <br><br>
+            <div id="gearBtn" data-gear="2">
+                <button id="g1" onclick=spoof_gear(1)> 1st</button>
+                <button id="g2" onclick=spoof_gear(2)> 2nd</button>
+                <button id="g3" onclick=spoof_gear(3)> 3rd</button>
+                <button id="g4" onclick=spoof_gear(4)> 4th</button>
+                <button id="g5" onclick=spoof_gear(5)> 5th</button>
+                <button id="g6" onclick=spoof_gear(0)> AUTO</button>
+            </div> -->
+			<hr>
+			<div>Speed Calibration (Km/h):
+				<input type="number" id="calc_speed" name="calc_speed" value=""></input>
+				<button onclick=updateSpeed()> Update</button>
+			</div>
+			<div>Fuel Calibration (L/h):
+				<input type="number" id="calc_fuel" name="calc_fuel" value=""></input>
+				<button onclick=updateFuel()> Update</button>
+			</div>
+			<div>Fuel Calibration Trip 0 (liters):
+				<input type="number" id="calc_fuel_ltr" name="calc_fuel_ltr" value=""></input>
+				<button onclick=updateFuelLtr()> Update</button>
+			</div>
+			<hr>
+			<div>Speed Calibration (RAW):
+				<input type="number" id="calc_speed_raw" name="calc_speed_raw" value=""></input>
+				<button onclick=updateSpeedRAW()> Update</button>
+			</div>
+			<div>Fuel Calibration (RAW):
+				<input type="number" id="calc_fuel_raw" name="calc_fuel_raw" value=""></input>
+				<button onclick=updateFuelRAW()> Update</button>
+			</div>
+			<hr>
+			<div>LCD Refresh Rate:
+				<input type="number" id="lcd_refresh_rate" name="lcd_refresh_rate" value=""></input>
+				<button onclick=lcdRefreshRate()> Update</button>
+			</div>
+			<div>Auto Trip Reset Minutes:
+				<input type="number" id="trip_reset_min" name="trip_reset_min" value=""></input>
+				<button onclick=updateTripResetMin()> Update</button>
+			</div>
+			<br>
+			<div>Current Fuel Price:
+				<input type="number" id="fuel_price" name="fuel_price" value=""></input>
+				<button onclick=sendCommand( "fuel_price")> Update</button>
+			</div>
+			<br>
+			<div>
+				<button onclick=synchronizeTime()> Synchronize Time</button>
+			</div>
+		</div>
+	</div>
+	<br>
+	<div class="error"><span id="error"></span></div>
+	<script>
+	var tmTime = 50;
+	const myTimeout = setTimeout(myTimer, tmTime);
+	var lastGear = 0;
+	var timestamp = getCurrentDateTime();
+	var key = `objRecords_${timestamp}`;
+	var objRecords = [];
+
+	function myTimer() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					const obj = JSON.parse(xhttp.responseText);
+					const nObj = {
+						gear: obj.gear,
+						con_loc: obj.con_loc,
+						rpm: obj.rpm,
+						rpm2: obj.rpm2,
+						speed: obj.speed,
+						vss1: obj.vss1,
+						inj: obj.inj,
+						duty_cycle: obj.duty_cycle,
+						inj_freq: obj.inj_freq,
+						kml: obj.kml,
+						lph: obj.lph
+					};
+					objRecords.push(nObj);
+					document.getElementById("gear").innerHTML = obj.gear;
+					document.getElementById("con_loc").innerHTML = obj.con_loc == 1 ? "On" : "Off";
+					document.getElementById("rpm").innerHTML = obj.rpm;
+					document.getElementById("speed").innerHTML = obj.speed;
+					document.getElementById("inj").innerHTML = obj.inj;
+					document.getElementById("duty_cycle").innerHTML = obj.duty_cycle;
+					document.getElementById("lph").innerHTML = obj.lph;
+					document.getElementById("kml").innerHTML = obj.kml;
+					document.getElementById("avg_kml").innerHTML = obj.trip_avg;
+					document.getElementById("vss1").innerHTML = obj.vss1;
+					document.getElementById("relay").innerHTML = (obj.relay == 1 ? "On" : "Off") + " => " + obj.o2_val;
+					/*document.getElementById("vss_spoof").innerHTML = (obj.vss_spoof == 1 ? "On" : "Off") + " => " + obj.spoof_per + "%";*/
+					document.getElementById("g_force").innerHTML = obj.g_force;
+					updateNthChildStyle(obj.spoof_gear);
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				} finally {
+					setTimeout(myTimer, tmTime);
+				}
+			}
+		};
+		xhttp.open("GET", "/getdata", true);
+		xhttp.send();
+	}
+
+	function updateO2() {
+		var xhttp = new XMLHttpRequest();
+		var o2_val = document.getElementById("o2_val").value;
+		if(o2_val > 77) {
+			o2_val = 77;
+		}
+		if(o2_val < 0) {
+			o2_val = 0;
+		}
+		if(o2_val == "") {
+			o2_val = 0;
+		}
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById("o2_val").value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		xhttp.open("GET", '/update_o2?o2_val=' + o2_val, true);
+		xhttp.send();
+	}
+
+	function spoof_gear(_gear) {
+		var xhttp = new XMLHttpRequest();
+		var val = _gear;
+		if(val == "") {
+			val = 0;
+		}
+		xhttp.open("GET", '/spoof_gear?gear=' + val, true);
+		xhttp.send();
+	}
+
+	function update_spoof() {
+		var xhttp = new XMLHttpRequest();
+		var val = document.getElementById("spoof_val").value;
+		if(val > 100) {
+			val = 100;
+		}
+		if(val < 0) {
+			val = 0;
+		}
+		if(val == "") {
+			val = 0;
+		}
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById("spoof_val").value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		xhttp.open("GET", '/update_spoof?spoof_val=' + val, true);
+		xhttp.send();
+	}
+
+	function synchronizeTime() {
+		var xhttp = new XMLHttpRequest();
+		var val = Math.floor(Date.now() / 1000) + 18000 + 2;
+		xhttp.open("GET", '/synchronize_time?val=' + val, true);
+		xhttp.send();
+	}
+
+	function relay_on() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.open("GET", "/relay_on", true);
+		xhttp.send();
+	}
+
+	function relay_off() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.open("GET", "/relay_off", true);
+		xhttp.send();
+	}
+
+	function spoof_on() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.open("GET", "/spoof_on", true);
+		xhttp.send();
+	}
+
+	function spoof_off() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.open("GET", "/spoof_off", true);
+		xhttp.send();
+	}
+
+	function updateSpeed() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById("calc_speed").value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		var val = document.getElementById("calc_speed").value;
+		xhttp.open("GET", '/update_speed?val=' + val, true);
+		xhttp.send();
+	}
+
+	function updateSpeedRAW() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById("calc_speed_raw").value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		var val = document.getElementById("calc_speed_raw").value;
+		xhttp.open("GET", '/update_speed_raw?val=' + val, true);
+		xhttp.send();
+	}
+
+	function updateFuel() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById("calc_fuel").value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		var val = document.getElementById("calc_fuel").value;
+		xhttp.open("GET", '/update_fuel?val=' + val, true);
+		xhttp.send();
+	}
+  
+	function updateFuelLtr() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById("calc_fuel_ltr").value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		var val = document.getElementById("calc_fuel_ltr").value;
+		xhttp.open("GET", '/update_fuel_ltr?val=' + val, true);
+		xhttp.send();
+	}
+
+	function updateFuelRAW() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById("calc_fuel_raw").value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		var val = document.getElementById("calc_fuel_raw").value;
+		xhttp.open("GET", '/update_fuel_raw?val=' + val, true);
+		xhttp.send();
+	}
+
+	function lcdRefreshRate() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById("lcd_refresh_rate").value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		var val = document.getElementById("lcd_refresh_rate").value;
+		xhttp.open("GET", '/lcd_refresh_rate?val=' + val, true);
+		xhttp.send();
+	}
+
+	function updateTripResetMin() {
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById("trip_reset_min").value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		var val = document.getElementById("trip_reset_min").value;
+		if(val === "") {
+			val = -1;
+		}
+		console.log("zain", val);
+		xhttp.open("GET", '/trip_reset_min?val=' + val, true);
+		xhttp.send();
+	}
+
+	function sendCommand(objName) {
+		var xhttp = new XMLHttpRequest();
+		xhttp.onreadystatechange = function() {
+			if(this.readyState == 4 && this.status == 200) {
+				try {
+					document.getElementById(objName).value = xhttp.responseText;
+				} catch(err) {
+					document.getElementById("error").innerHTML = err.message;
+				}
+			}
+		}
+		var val = document.getElementById(objName).value;
+		console.log("zain", objName, val);
+		xhttp.open("GET", '/' + objName + '?val=' + val, true);
+		xhttp.send();
+	}
+
+	function updateNthChildStyle(gearValue) {
+		if(lastGear == gearValue) return;
+		lastGear = gearValue;
+		var zGearValue = gearValue;
+		if(zGearValue == 0) {
+			zGearValue = 6;
+		}
+		// Reset styles for all buttons
+		var buttons = document.querySelectorAll('#gearBtn button');
+		buttons.forEach(function(button) {
+			button.style.backgroundColor = '#ddd';
+			button.style.color = '#333';
+		});
+		try {
+			// Highlight the nth child button based on data-gear attribute
+			var nthChild = document.querySelector(`#gearBtn button:nth-child(${zGearValue})`);
+			if(nthChild) {
+				nthChild.style.backgroundColor = '#ff0000'; // Adjust the color as needed
+				nthChild.style.color = '#fff'; // Adjust the color as needed
+			}
+		} catch(err) {}
+	}
+
+	function getCurrentDateTime() {
+		var now = new Date();
+		var year = now.getFullYear();
+		var month = String(now.getMonth() + 1).padStart(2, '0');
+		var day = String(now.getDate()).padStart(2, '0');
+		var hours = now.getHours();
+		var ampm = hours >= 12 ? 'PM' : 'AM';
+		hours = hours % 12 || 12; // Convert 24-hour format to 12-hour format
+		var hoursString = String(hours).padStart(2, '0');
+		var minutes = String(now.getMinutes()).padStart(2, '0');
+		var seconds = String(now.getSeconds()).padStart(2, '0');
+		return `${year}-${month}-${day} ${hoursString}:${minutes}:${seconds} ${ampm}`;
+	}
+	var saveTimer = setInterval(saveData, 5000);
+
+	function saveData() {
+		try {
+			var checkbox = document.getElementById("record_log");
+			if(checkbox.checked) {
+				localStorage.setItem(key, JSON.stringify(objRecords));
+			}
+		} catch(err) {}
+	}
+
+	function saveCheckboxState() {
+		var checkbox = document.getElementById("record_log");
+		// Save the checkbox state to local storage
+		localStorage.setItem("checkboxState", checkbox.checked);
+	}
+
+	function loadCheckboxState() {
+		var checkbox = document.getElementById("record_log");
+		// Retrieve the checkbox state from local storage
+		var checkboxState = localStorage.getItem("checkboxState");
+		// Set the checkbox state based on the stored value
+		if(checkboxState === "true") {
+			checkbox.checked = true;
+		} else {
+			checkbox.checked = false;
+		}
+	}
+	window.onload = loadCheckboxState;
+	</script>
+</body>
+</html>
+        )rawliteral";

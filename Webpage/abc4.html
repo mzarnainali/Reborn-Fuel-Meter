@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Zarnain Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --fg: #111827;
+      --primary: #2563eb;
+      --card: #ffffff;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Inter', sans-serif;
+      --radius: 16px;
+      --blur: 10px;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--sans);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      padding: 32px 16px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+
+    .nav {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .nav a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 1rem;
+      padding: 6px 12px;
+      border-radius: 12px;
+      transition: background 0.2s ease;
+    }
+
+    .nav a:hover {
+      background: #e0e7ff;
+    }
+
+    .card {
+      background: var(--card);
+      backdrop-filter: blur(var(--blur));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px 28px;
+      transition: transform 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+    }
+
+    .title {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+
+    .data-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px 24px;
+    }
+
+    .data-item {
+      font-size: 1rem;
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      padding: 6px 0;
+    }
+
+    .highlight {
+      font-weight: 600;
+      color: #16a34a;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      background: #f9fafb;
+      margin-top: 6px;
+    }
+
+    label {
+      display: block;
+      margin-top: 16px;
+      font-size: 0.95rem;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
+
+    button:hover {
+      background: #1e40af;
+      transform: scale(1.02);
+    }
+
+    .error {
+      background: #fee2e2;
+      color: #b91c1c;
+      padding: 12px;
+      border-radius: 10px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      .data-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="nav">
+      <a href="/dash">Dashboard</a>
+      <a href="/json">All Data</a>
+      <a href="/datalog">Data Log</a>
+      <a href="/export">Export</a>
+      <a href="/ota_update">OTA Update</a>
+    </div>
+
+    <div class="card">
+      <div class="title">Live Vehicle Data</div>
+      <div class="data-grid">
+        <div class="data-item">Gear: <span id="gear">0</span></div>
+        <div class="data-item">Converter Lockup: <span id="con_loc">0</span></div>
+        <div class="data-item">RPM: <span id="rpm" class="highlight">0</span></div>
+        <div class="data-item">Speed: <span id="speed">0</span></div>
+        <div class="data-item">Injector: <span id="inj">0</span></div>
+        <div class="data-item">Duty Cycle: <span id="duty_cycle">0</span></div>
+        <div class="data-item">L/h: <span id="lph" class="highlight">0</span></div>
+        <div class="data-item">Instant Km/L: <span id="kml" class="highlight">0</span></div>
+        <div class="data-item">Avg Km/L: <span id="avg_kml">0</span></div>
+        <div class="data-item">g Force: <span id="g_force">0</span></div>
+        <div class="data-item">VSS1 PULS: <span id="vss1">0</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="title">Control Panel</div>
+      <div class="data-item">O2 Relay: <span id="relay">0</span></div>
+
+      <label>O2 Value:
+        <input type="number" id="o2_val">
+        <button onclick="updateO2()">Update O2</button>
+      </label>
+
+      <button onclick="relay_on()">Turn On O2</button>
+      <button onclick="relay_off()">Turn Off O2</button>
+
+      <label>Speed Calibration (Km/h):
+        <input type="number" id="calc_speed">
+        <button onclick="updateSpeed()">Update</button>
+      </label>
+
+      <label>Fuel Calibration (L/h):
+        <input type="number" id="calc_fuel">
+        <button onclick="updateFuel()">Update</button>
+      </label>
+
+      <label>Speed Calibration (RAW):
+        <input type="number" id="calc_speed_raw">
+        <button onclick="updateSpeedRAW()">Update</button>
+      </label>
+
+      <label>Fuel Calibration (RAW):
+        <input type="number" id="calc_fuel_raw">
+        <button onclick="updateFuelRAW()">Update</button>
+      </label>
+
+      <label>LCD Refresh Rate:
+        <input type="number" id="lcd_refresh_rate">
+        <button onclick="lcdRefreshRate()">Update</button>
+      </label>
+
+      <label>Auto Trip Reset Minutes:
+        <input type="number" id="trip_reset_min">
+        <button onclick="updateTripResetMin()">Update</button>
+      </label>
+
+      <label>Fuel Price:
+        <input type="number" id="fuel_price">
+        <button onclick="sendCommand('fuel_price')">Update</button>
+      </label>
+
+      <button onclick="synchronizeTime()">Synchronize Time</button>
+    </div>
+
+    <div class="error">
+      <span id="error"></span>
+    </div>
+  </div>
+
+</body>
+</html>

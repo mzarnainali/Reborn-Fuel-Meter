@@ -1,0 +1,679 @@
+<style>
+	html {
+		font-size: 18px;
+	}
+
+	:root {
+		--digit-color: red;
+		--guage-size: 300px;
+		--torq-lock: #fff;
+	}
+
+	* {
+		box-sizing: border-box;
+		margin: 0;
+		padding: 0;
+	}
+
+	body {
+		background: black;
+		color: white;
+		font-family: 'Open Sans', sans;
+	}
+    #gauges{
+	    display: flex;
+		justify-content: space-around;
+		padding-top: 10px;
+	}
+	.gauge {
+		--start-angle: -30deg;
+		--digits-angle: 30deg;
+		--lines-count: 9;
+		--digits-count: 8;
+		--gauge-value: 0;
+		position: relative;
+		border: 0.3rem solid #137;
+		border-radius: 100%;
+		box-shadow: inset 0 0 0.25rem 0.25rem #137, inset 0 0 7.5rem rgba(40, 101, 224, 0.5);
+		width: 100%;
+		height: 100%;
+		background-color: #040b10;
+		overflow: hidden;
+	}
+
+	.gauge::before {
+		padding-top: 100%;
+		content: '';
+		display: block;
+	}
+
+	.gauge::after {
+		font-size: 0.5rem;
+		font-weight: bold;
+		display: block;
+		content: '';
+		position: absolute;
+		top: 25%;
+		width: 100%;
+		text-align: center;
+	}
+
+	.gauge .pointer {
+		z-index: 4;
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+	}
+
+	.gauge .pointer::before {
+		content: '';
+		display: block;
+		box-sizing: border-box;
+		position: absolute;
+		width: 22%;
+		height: 22%;
+		left: 39%;
+		top: 39%;
+		border-radius: 100%;
+		box-shadow: inset 0 0 1rem 1px rgba(51, 153, 255, 0.5), 0 0 5rem 0.1rem #137;
+	}
+
+	.gauge .pointer .hand {
+		position: absolute;
+		left: 0;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		transform-origin: center center;
+		transform: rotate(calc(var(--start-angle) + ((var(--gauge-value)) * var(--digits-angle))));
+		transition: transform ease 0.2s;
+	}
+
+	.gauge .pointer .hand::after {
+		content: '';
+		display: block;
+		box-sizing: border-box;
+		position: absolute;
+		width: 39%;
+		height: 2%;
+		top: 49%;
+		right: 56%;
+		background: var(--torq-lock);
+		border: 1px solid #fff;
+		border-right: 0;
+		border-bottom-left-radius: 1.7rem 0.25rem;
+		border-top-left-radius: 1.7rem 0.25rem;
+		box-shadow: inset 0px 0 1px #000;
+		z-index: 1;
+	}
+
+	.gauge .pointer .hand::before {
+		content: '';
+		display: block;
+		border: 1px solid #fff;
+		position: absolute;
+		width: 12%;
+		height: 5.5%;
+		left: 44%;
+		top: 47.25%;
+		box-sizing: border-box;
+		border-radius: 20%;
+		background: var(--torq-lock);
+		box-shadow: inset 0 0 1px 1px rgba(0, 0, 0, 0.25);
+		z-index: 0;
+	}
+
+	.gauge .digit {
+		position: absolute;
+		top: 49.375%;
+		right: 50%;
+		width: 50%;
+		height: 1.25%;
+		border-left: 1.1rem solid white;
+		transform-origin: center right;
+		box-sizing: border-box;
+		z-index: 1;
+		--digit-rotation: calc(var(--start-angle) + var(--digit-order) * var(--digits-angle));
+		transform: rotate(var(--digit-rotation));
+	}
+
+	.gauge .digit .label {
+		transform: rotate(calc(-1 * var(--digit-rotation)));
+	}
+
+	.gauge .digit .label:not(:root:root) {
+		transform: rotate(calc(-1 * (var(--start-angle) + var(--digit-order) * var(--digits-angle))));
+	}
+
+	.gauge .digit:nth-of-type(1) {
+		--digit-order: 0;
+	}
+
+	.gauge .digit:nth-of-type(2) {
+		--digit-order: 1;
+	}
+
+	.gauge .digit:nth-of-type(3) {
+		--digit-order: 2;
+	}
+
+	.gauge .digit:nth-of-type(4) {
+		--digit-order: 3;
+	}
+
+	.gauge .digit:nth-of-type(5) {
+		--digit-order: 4;
+	}
+
+	.gauge .digit:nth-of-type(6) {
+		--digit-order: 5;
+	}
+
+	.gauge .digit:nth-of-type(7) {
+		--digit-order: 6;
+	}
+
+	.gauge .digit:nth-of-type(8) {
+		--digit-order: 7;
+	}
+
+	.gauge .digit:nth-of-type(9) {
+		--digit-order: 8;
+	}
+
+	.gauge .digit:nth-of-type(10) {
+		--digit-order: 9;
+	}
+
+	.gauge .digit:nth-of-type(11) {
+		--digit-order: 10;
+	}
+	.gauge .digit:nth-of-type(12) {
+		--digit-order: 11;
+	}
+	.gauge .digit:nth-of-type(13) {
+		--digit-order: 12;
+	}
+
+	.gauge .digit .label {
+		position: absolute;
+		font-family: 'Changa One', cursive;
+		font-style: italic;
+		font-size: 1rem;
+		bottom: -0.5rem;
+		left: 7%;
+		text-shadow: 0.1rem 0.1rem 0.1rem black, 0.1rem -0.1rem 0.1rem black, -0.1rem 0.1rem 0.1rem black, -0.1rem -0.1rem 0.1rem black;
+		box-shadow: 0 0 1rem 1rem rgba(195, 225, 255, 0.05);
+		background: rgba(255, 255, 255, 0.05);
+	}
+
+	.gauge .digit.highlighted {
+		border-left-color: red;
+	}
+
+	.gauge .digit .line {
+		position: absolute;
+		display: block;
+		width: 100%;
+		height: 50%;
+		border-left: 0.5rem solid white;
+		border-right: 0.5rem solid transparent;
+		left: -1rem;
+		top: 25%;
+		transform: rotate(calc(var(--digits-angle) / var(--lines-count) * var(--line-order)));
+		transform-origin: center right;
+	}
+
+	.gauge .digit .line.highlighted {
+		border-left-color: red;
+	}
+
+	.gauge .digit .line.separating {
+		top: 12.5%;
+		height: 75%;
+	}
+
+	.gauge .digit .line.separating::after {
+		content: '';
+		display: block;
+		border-left: 2.5rem solid rgba(255, 255, 255, 0.15);
+		border-top: 0.075rem solid transparent;
+		border-bottom: 0.075rem solid transparent;
+		width: 0;
+		height: 0;
+		position: absolute;
+		left: 0.25rem;
+	}
+
+	.gauge .digit .line:nth-child(1) {
+		--line-order: 1;
+	}
+
+	.gauge .digit .line:nth-child(2) {
+		--line-order: 2;
+	}
+
+	.gauge .digit .line:nth-child(3) {
+		--line-order: 3;
+	}
+
+	.gauge .digit .line:nth-child(4) {
+		--line-order: 4;
+	}
+
+	.gauge .digit .line:nth-child(5) {
+		--line-order: 5;
+	}
+
+	.gauge .digit .line:nth-child(6) {
+		--line-order: 6;
+	}
+
+	.gauge .digit .line:nth-child(7) {
+		--line-order: 7;
+	}
+
+	.gauge .digit .line:nth-child(8) {
+		--line-order: 8;
+	}
+
+	.gauge .digit .line:nth-child(9) {
+		--line-order: 9;
+	}
+
+	.gauge .digit .line:nth-child(10) {
+		--line-order: 10;
+	}
+
+	.gauge .digit .line:nth-child(11) {
+		--line-order: 11;
+	}
+
+	.gauge .digit .line:nth-child(12) {
+		--line-order: 12;
+	}
+
+	.gauge .digit .line:nth-child(13) {
+		--line-order: 13;
+	}
+
+	.gauge .digit .line:nth-child(14) {
+		--line-order: 14;
+	}
+
+	.gauge .limiter {
+		width: 100%;
+		height: 50%;
+		position: absolute;
+		top: 0;
+		left: 0;
+		transform-origin: bottom center;
+		transform: rotate(calc(var(--start-angle) + var(--digits-count) * var(--digits-angle) - 180deg));
+		overflow: hidden;
+		z-index: 0;
+	}
+
+	.gauge .limiter::after {
+		content: '';
+		width: 99.5%;
+		height: 199%;
+		border: 0.3rem solid;
+		border-color: transparent red red transparent;
+		border-radius: 100%;
+		display: block;
+		box-sizing: border-box;
+		transform: rotate(calc(45deg + var(--digits-angle) * (var(--limiter) / 1000 - var(--digits-count))));
+	}
+
+	#speedmeter {
+		width: var(--guage-size);
+		display: inline-block;
+		aspect-ratio: 1;
+	}
+
+	#speedmeter .gauge::after {
+		content: 'km/h';
+	}
+
+	#speedmeter .gauge .pointer::after {
+		counter-reset: kmh var(--kmh);
+		content: counter(kmh) " km/h";
+		color: #fff;
+		top: 65%;
+		left: 0;
+		right: 0;
+		text-align: center;
+		display: block;
+		position: absolute;
+		font-size: 0.5rem;
+	}
+
+	#revmeter {
+		width: var(--guage-size);
+		display: inline-block;
+		aspect-ratio: 1;
+	}
+
+	#revmeter .gauge::after {
+		content: 'x1000r/min';
+	}
+
+	#revmeter .gauge .label {
+		font-size: 1.4rem;
+		bottom: -0.7rem;
+		left: 10%;
+	}
+
+	#revmeter .gauge .pointer::after {
+		font-family: 'Changa One', cursive;
+		font-style: italic;
+		counter-reset: gear var(--gear);
+		content: counter(gear);
+		color: var(--torq-lock);
+		top: 65%;
+		left: 0;
+		right: 0;
+		text-align: center;
+		display: block;
+		position: absolute;
+		font-size: 2rem;
+	}
+
+
+
+
+
+	#g_force {
+		float: left;
+		width: 70px;
+		border: 3px solid #113377;
+		border-radius: 100%;
+		display: inline-block;
+		aspect-ratio: 1;
+		white-space: normal;
+		word-break: break-word;
+		display: flex;
+		align-items: center;
+		text-align: center;
+		align-content: space-around;
+		justify-content: space-around;
+		font-size: 1.5rem;
+	}
+	.info-row{
+	    display: flex;
+    justify-content: space-evenly;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    flex-direction: row;
+	position: relative;
+    top: -10px;
+	font-weight: bold;
+	color: #607D8B;
+}
+
+.info-row span{
+	font-weight: normal;
+
+}
+	
+</style>
+	<div id="dashboard">
+	  <div id="gauges">
+	    <div id="revmeter">
+	      <div class="gauge" style="--rpm: 0; --limiter: 6700; --gauge-value: var(--rpm) / 1000;">
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <div class="label">0</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <div class="label">1</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <div class="label">2</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <div class="label">3</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <div class="label">4</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <div class="label">5</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="highlighted line"></span>
+	          <div class="label">6</div>
+	        </div>
+	        <div class="digit">
+	          <span class="highlighted line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="separating line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="highlighted line"></span>
+	          <div class="label">7</div>
+	        </div>
+	        <div class="digit">
+	          <div class="label">8</div>
+	        </div>
+	        <div class="limiter"></div>
+	        <div class="pointer">
+	          <div class="hand"></div>
+	        </div>
+	        <div class="gear"></div>
+	      </div>
+	    </div>
+	    <div id="speedmeter">
+	      <div class="gauge" style="--kmh: 0; --start-angle: -35deg; --digits-angle: 21deg; --lines-count: 5; --digits-count: 10; --gauge-value: var(--kmh) / 20;">
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">0</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">20</div>
+	        </div>
+			<div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">40</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">60</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">80</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">100</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">120</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">140</div>
+	        </div>
+	        <div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">160</div>
+	        </div>
+			<div class="digit">
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <span class="separating line"></span>
+	          <span class="line"></span>
+	          <div class="label">180</div>
+	        </div>
+			<div class=" highlighted digit">
+	          <span class="highlighted line"></span>
+	          <span class="highlighted separating line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="highlighted separating line"></span>
+	          <span class="highlighted line"></span>
+	          <div class="label">200</div>
+	        </div>
+			<div class="highlighted digit">
+	          <span class="highlighted line"></span>
+	          <span class="highlighted separating line"></span>
+	          <span class="highlighted line"></span>
+	          <span class="highlighted separating line"></span>
+	          <span class="highlighted line"></span>
+	          <div class="label">220</div>
+	        </div>
+	        <div class="highlighted digit">
+	          <div class="label">240</div>
+	        </div>
+	        <div class="pointer">
+	          <div class="hand"></div>
+	        </div>
+	      </div>
+	    </div>
+	  </div>
+	</div>
+	<div id="info">
+	  <div class="info-row">
+	    <div class="column col1">
+	      <div>Inj: <span id="inj">2342</span>
+	      </div>
+	      <div>L/h: <span id="lph">0</span>
+	      </div>
+	      <div>Km/L: <span id="kml">0</span>
+	      </div>
+	    </div>
+	    <div class="column col2">
+		  <div>Trip Average: <span id="trp_avg">0</span>
+		  <div>Total Fuel Used: <span id="trp_fuel">0</span>  </div>
+	      </div>
+	    </div>
+	    <div class="column col3">
+		  <div>Total Average: <span id="tot_avg">0</span>
+		  <div>Total Fuel Used: <span id="tot_fuel">0</span>
+	      </div>
+	      </div>
+	    </div>
+	    <div class="column col4">
+	        <span id="g_force" >0.00</span>
+	  </div>
+	</div>
+	</div>
+   
+<script>
+	function updateRpm(value) {
+		document.querySelector('#revmeter .gauge').style.setProperty('--rpm', value);
+	}
+
+	function updateKmh(value) {
+		document.querySelector('#speedmeter .gauge').style.setProperty('--kmh', Math.round(value));
+	}
+
+	function updateGear(value) {
+		document.querySelector('#revmeter .gauge').style.setProperty('--gear', value);
+	}
+</script>

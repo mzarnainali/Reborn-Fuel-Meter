@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Zarnain</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f4f4f9;
+            padding: 20px;
+            color: #333;
+        }
+
+        a {
+            color: #673AB7;
+            text-decoration: none;
+            margin-right: 10px;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .nav {
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .column {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        .data-row {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .hlight {
+            font-size: 1.5rem;
+            background: #673AB7;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            min-width: 60px;
+            text-align: center;
+            display: inline-block;
+        }
+
+        input[type="number"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            width: 80px;
+        }
+
+        button {
+            padding: 6px 12px;
+            background-color: #673AB7;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            margin-top: 5px;
+        }
+
+        button:hover {
+            background-color: #5E35B1;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid #ddd;
+            margin: 15px 0;
+        }
+
+        label {
+            font-size: 0.9rem;
+        }
+
+        .error {
+            color: red;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="nav">
+        <a href="/dash">Dashboard</a> |
+        <a href="/json">All Data</a> |
+        <a href="/datalog">Data Log</a> |
+        <a href="/export">Data Log Export</a> |
+        <a href="/ota_update">OTA Update</a>
+        &nbsp;&nbsp;
+        <input type="checkbox" id="record_log" name="record_log" onchange="saveCheckboxState()">
+        <label for="record_log">Record Log</label>
+    </div>
+
+    <div class="row">
+        <!-- Left Column -->
+        <div class="column">
+            <div class="data-row">Gear: <span id="gear">0</span></div>
+            <div class="data-row">Converter Lockup: <span id="con_loc">0</span></div>
+            <div class="data-row">RPM: <span id="rpm" class="hlight">0</span></div>
+            <div class="data-row">Speed: <span id="speed">0</span></div>
+            <div class="data-row">Inj: <span id="inj">0</span></div>
+            <div class="data-row">Inj Duty%: <span id="duty_cycle">0</span></div>
+            <div class="data-row">L/h: <span id="lph" class="hlight">0</span></div>
+            <div class="data-row">Instant Km/L: <span id="kml" class="hlight">0</span></div>
+            <div class="data-row">Avg Km/L: <span id="avg_kml">0</span></div>
+            <div class="data-row">g Force: <span id="g_force">0</span></div>
+            <div class="data-row">VSS1 PULS: <span id="vss1">0</span></div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="column">
+            <div class="data-row">O2 Relay: <span id="relay">0</span></div>
+
+            <div class="data-row">
+                O2 Value: <input type="number" id="o2_val">
+                <button onclick="updateO2()">Update O2</button>
+            </div>
+
+            <button onclick="relay_on()">Turn On O2</button>
+            <button onclick="relay_off()">Turn Off O2</button>
+
+            <hr>
+
+            <div class="data-row">
+                Speed Calibration (Km/h): <input type="number" id="calc_speed">
+                <button onclick="updateSpeed()">Update</button>
+            </div>
+            <div class="data-row">
+                Fuel Calibration (L/h): <input type="number" id="calc_fuel">
+                <button onclick="updateFuel()">Update</button>
+            </div>
+
+            <hr>
+
+            <div class="data-row">
+                Speed Calibration (RAW): <input type="number" id="calc_speed_raw">
+                <button onclick="updateSpeedRAW()">Update</button>
+            </div>
+            <div class="data-row">
+                Fuel Calibration (RAW): <input type="number" id="calc_fuel_raw">
+                <button onclick="updateFuelRAW()">Update</button>
+            </div>
+
+            <hr>
+
+            <div class="data-row">
+                LCD Refresh Rate: <input type="number" id="lcd_refresh_rate">
+                <button onclick="lcdRefreshRate()">Update</button>
+            </div>
+            <div class="data-row">
+                Auto Trip Reset Minutes: <input type="number" id="trip_reset_min">
+                <button onclick="updateTripResetMin()">Update</button>
+            </div>
+
+            <div class="data-row">
+                Current Fuel Price: <input type="number" id="fuel_price">
+                <button onclick="sendCommand('fuel_price')">Update</button>
+            </div>
+
+            <br>
+            <button onclick="synchronizeTime()">Synchronize Time</button>
+        </div>
+    </div>
+
+    <div class="error"><span id="error"></span></div>
+</body>
+
+</html>

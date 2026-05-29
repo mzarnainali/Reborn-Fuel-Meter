@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Zarnain Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        body {
+            background: #f5f7fa;
+            padding: 20px;
+            color: #333;
+        }
+
+        .nav {
+            margin-bottom: 30px;
+        }
+
+        .nav a {
+            color: #1976d2;
+            text-decoration: none;
+            margin-right: 16px;
+            font-weight: 500;
+        }
+
+        .nav a:hover {
+            text-decoration: underline;
+        }
+
+        .nav input[type="checkbox"] {
+            margin-left: 30px;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+        }
+
+        .column {
+            flex: 1;
+            min-width: 330px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+        }
+
+        h2 {
+            margin-bottom: 12px;
+            color: #1976d2;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .data-row:last-child {
+            border-bottom: none;
+        }
+
+        .hlight {
+            font-weight: bold;
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 2px 10px;
+            border-radius: 4px;
+        }
+
+        input[type="number"] {
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            width: 90px;
+            margin-left: 10px;
+        }
+
+        button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
+            margin-right: 6px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #0d47a1;
+        }
+
+        hr {
+            margin: 20px 0;
+            border: none;
+            border-top: 1px solid #ddd;
+        }
+
+        .error {
+            margin-top: 20px;
+            color: #d32f2f;
+        }
+
+        @media (max-width: 768px) {
+            .row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="nav">
+        <a href="/dash">Dashboard</a> |
+        <a href="/json">All Data</a> |
+        <a href="/datalog">Data Log</a> |
+        <a href="/export">Data Log Export</a> |
+        <a href="/ota_update">OTA Update</a>
+        <input type="checkbox" id="record_log" name="record_log" onchange="saveCheckboxState()">
+        <label for="record_log">Record Log</label>
+    </div>
+
+    <div class="row">
+        <!-- Column 1 -->
+        <div class="column">
+            <h2>Live Data</h2>
+            <div class="data-row">Gear: <span id="gear">0</span></div>
+            <div class="data-row">Converter Lockup: <span id="con_loc">0</span></div>
+            <div class="data-row">RPM: <span id="rpm" class="hlight">0</span></div>
+            <div class="data-row">Speed: <span id="speed">0</span></div>
+            <div class="data-row">Inj: <span id="inj">0</span></div>
+            <div class="data-row">Inj Duty%: <span id="duty_cycle">0</span></div>
+            <div class="data-row">L/h: <span id="lph" class="hlight">0</span></div>
+            <div class="data-row">Instant Km/L: <span id="kml" class="hlight">0</span></div>
+            <div class="data-row">Avg Km/L: <span id="avg_kml">0</span></div>
+            <div class="data-row">g Force: <span id="g_force">0</span></div>
+            <div class="data-row">VSS1 PULS: <span id="vss1">0</span></div>
+        </div>
+
+        <!-- Column 2 -->
+        <div class="column">
+            <h2>Control Panel</h2>
+            <div class="data-row">O2 Relay: <span id="relay">0</span></div>
+
+            <div class="data-row">
+                O2 Value:
+                <input type="number" id="o2_val">
+                <button onclick="updateO2()">Update O2</button>
+            </div>
+
+            <div>
+                <button onclick="relay_on()">Turn On O2</button>
+                <button onclick="relay_off()">Turn Off O2</button>
+            </div>
+
+            <hr>
+
+            <div class="data-row">
+                Speed Calibration (Km/h):
+                <input type="number" id="calc_speed">
+                <button onclick="updateSpeed()">Update</button>
+            </div>
+
+            <div class="data-row">
+                Fuel Calibration (L/h):
+                <input type="number" id="calc_fuel">
+                <button onclick="updateFuel()">Update</button>
+            </div>
+
+            <hr>
+
+            <div class="data-row">
+                Speed Calibration (RAW):
+                <input type="number" id="calc_speed_raw">
+                <button onclick="updateSpeedRAW()">Update</button>
+            </div>
+
+            <div class="data-row">
+                Fuel Calibration (RAW):
+                <input type="number" id="calc_fuel_raw">
+                <button onclick="updateFuelRAW()">Update</button>
+            </div>
+
+            <hr>
+
+            <div class="data-row">
+                LCD Refresh Rate:
+                <input type="number" id="lcd_refresh_rate">
+                <button onclick="lcdRefreshRate()">Update</button>
+            </div>
+
+            <div class="data-row">
+                Auto Trip Reset Minutes:
+                <input type="number" id="trip_reset_min">
+                <button onclick="updateTripResetMin()">Update</button>
+            </div>
+
+            <div class="data-row">
+                Current Fuel Price:
+                <input type="number" id="fuel_price">
+                <button onclick="sendCommand('fuel_price')">Update</button>
+            </div>
+
+            <div>
+                <button onclick="synchronizeTime()">Synchronize Time</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="error">
+        <span id="error"></span>
+    </div>
+</body>
+
+</html>

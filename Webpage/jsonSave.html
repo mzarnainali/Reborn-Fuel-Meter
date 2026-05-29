@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Page Title</title>
+</head>
+<body>
+
+<h1>This is a Heading</h1>
+<p>This is a paragraph.</p>
+
+</body>
+<script>
+function generateRandomData() {
+    return {
+        gear: getRandomInt(1, 6),
+        con_loc: Math.random() < 0.5 ? 0 : 1,
+        rpm: getRandomInt(1000, 7000),
+        speed: getRandomInt(20, 100),
+        speed2: getRandomInt(20, 100),
+        inj: getRandomFloat(0, 100),
+        duty_cycle: getRandomFloat(0, 100),
+        lph: getRandomFloat(1, 10),
+        kml: getRandomFloat(5, 30),
+        trip_avg: getRandomFloat(5, 30),
+        vss1: getRandomInt(20, 100),
+        vss2: getRandomInt(20, 100),
+        vss_diff: getRandomInt(-10, 10),
+        relay: Math.random() < 0.5 ? 0 : 1,
+        o2_val: getRandomFloat(0, 1),
+        vss_spoof: Math.random() < 0.5 ? 0 : 1,
+        spoof_per: getRandomFloat(0, 100),
+        g_force: getRandomFloat(0, 2)
+    };
+}
+
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getRandomFloat(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+function getCurrentDateTime() {
+    var now = new Date();
+    var year = now.getFullYear();
+    var month = String(now.getMonth() + 1).padStart(2, '0');
+    var day = String(now.getDate()).padStart(2, '0');
+    var hours = now.getHours();
+    var ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;  // Convert 24-hour format to 12-hour format
+    var hoursString = String(hours).padStart(2, '0');
+    var minutes = String(now.getMinutes()).padStart(2, '0');
+    var seconds = String(now.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hoursString}:${minutes}:${seconds} ${ampm}`;
+}
+var timestamp = getCurrentDateTime();
+var key = `objRecords_${timestamp}`;
+
+var objRecords = [];
+
+var timer = setInterval(updateTimer, 50);
+var saveTimer = setInterval(saveData, 5000); // Set interval to 5000 milliseconds (5 seconds)
+
+function updateTimer() {
+const randomData = generateRandomData();
+objRecords.push(randomData);
+
+}
+function saveData() {
+    localStorage.setItem(key, JSON.stringify(objRecords));
+}
+
+</script>
+</html>
+
