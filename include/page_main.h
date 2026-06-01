@@ -52,7 +52,7 @@ const char P_MAIN_PAGE[] PROGMEM = R"rawliteral(
 	}
 	</style>
 </head>
-<body> <a href="/dash"> Dashboard </a> | <a href="/json"> All Data </a> | <a href="/datalog"> Data Log </a> | <a href="/export"> Data Log Export </a> | <a href="/ota_update"> OTA Update </a> &nbsp&nbsp&nbsp&nbsp&nbsp
+<body> <a href="/dash"> Dashboard </a> | <a href="/json"> All Data </a> | <a href="/datalog"> Data Log </a> | <a href="/export"> Data Log Export </a> | <a href="/ota_update"> OTA Update </a> | <a href="/car_door"> Car Door </a> &nbsp&nbsp&nbsp&nbsp&nbsp
 	<input type="checkbox" id="record_log" name="record_log" value="N" onchange="saveCheckboxState()">
 	<label for="record_log"> Record Log</label>
 	<div class="row">
@@ -128,7 +128,7 @@ const char P_MAIN_PAGE[] PROGMEM = R"rawliteral(
 			<br>
 			<div>Current Fuel Price:
 				<input type="number" id="fuel_price" name="fuel_price" value=""></input>
-				<button onclick=sendCommand( "fuel_price")> Update</button>
+				<button onclick="sendCommand('fuel_price')">Update</button>
 			</div>
 			<br>
 			<div>

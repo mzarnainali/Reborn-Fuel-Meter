@@ -23,6 +23,7 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <DNSServer.h>
 #include <Update.h>
 #include <Arduino_JSON.h>
 #include <Preferences.h>
@@ -64,7 +65,7 @@ void resetFlash()
 }
 #endif
 
-const char *serverIndex = "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>\n    <input type='file' name='update'>\n    <input type='submit' value='Update'>\n</form>\n<div id='prg'>progress: 0%</div>\n<script>\ndocument.getElementById('upload_form').addEventListener('submit', function(e) {\n    e.preventDefault();\n    \n    var form = document.getElementById('upload_form');\n    var data = new FormData(form);\n\n    var xhr = new XMLHttpRequest();\n    xhr.open('POST', '/ota_update', true);\n\n    xhr.upload.addEventListener('progress', function(evt) {\n        if (evt.lengthComputable) {\n            var per = evt.loaded / evt.total;\n            document.getElementById('prg').innerHTML = 'progress: ' + Math.round(per * 100) + '%';\n        }\n    }, false);\n\n    xhr.onload = function() {\n        if (xhr.status === 200) {\n            console.log('success!');\n        }\n    };\n\n    xhr.onerror = function() {\n        // Handle error\n    };\n\n    xhr.send(data);\n});\n</script>";
+const char *serverIndex = "<meta name='viewport' content='width=device-width, initial-scale=1.0'><form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>\n    <input type='file' name='update'>\n    <input type='submit' value='Update'>\n</form>\n<div id='prg'>progress: 0%</div>\n<script>\ndocument.getElementById('upload_form').addEventListener('submit', function(e) {\n    e.preventDefault();\n    \n    var form = document.getElementById('upload_form');\n    var data = new FormData(form);\n\n    var xhr = new XMLHttpRequest();\n    xhr.open('POST', '/ota_update', true);\n\n    xhr.upload.addEventListener('progress', function(evt) {\n        if (evt.lengthComputable) {\n            var per = evt.loaded / evt.total;\n            document.getElementById('prg').innerHTML = 'progress: ' + Math.round(per * 100) + '%';\n        }\n    }, false);\n\n    xhr.onload = function() {\n        if (xhr.status === 200) {\n            console.log('success!');\n        }\n    };\n\n    xhr.onerror = function() {\n        // Handle error\n    };\n\n    xhr.send(data);\n});\n</script>";
 
 volatile int mainLoopCount;
 bool debug = true;
@@ -74,6 +75,7 @@ float outSideTempC = 0.0f;
 static Trip trip;
 RTC_DS3231 rtc;
 AsyncWebServer server(80);
+DNSServer dnsServer;
 
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(TEMP_SENSOR_PIN);
@@ -870,7 +872,7 @@ void SpoofSpeed(unsigned long currentMillis = millis())
 void setupWIFI()
 {
   const char *ap_ssid = "Reborn";
-  const char *ap_password = "Zain@1122";
+  const char *ap_password = "Z.12345678";
   IPAddress customIP(192, 168, 4, 1);
 
   // const char *ssid = "Logout";
@@ -882,6 +884,7 @@ void setupWIFI()
   WiFi.softAPConfig(customIP, customIP, IPAddress(255, 255, 255, 0));
   WiFi.softAP(ap_ssid, ap_password, 1);
   WiFi.hostname(String("Reborn").c_str());
+  dnsServer.start(53, "*", customIP);
   // WiFi.begin(ssid, password);
 }
 
@@ -1140,7 +1143,7 @@ void setupServer()
       { request->send(200, "image/x-icon", "X"); });
 
   server.onNotFound([](AsyncWebServerRequest *request)
-                    { request->send_P(200, "text/html", P_MAIN_PAGE, null); });
+                    { request->redirect("/"); });
 
   server.on("/synchronize_time", HTTP_GET, [](AsyncWebServerRequest *request)
             {
@@ -1156,13 +1159,13 @@ void setupServer()
       }
       request->send(200, "text/html", "OK"); });
 
-  server.on("/door_lock", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/lock", HTTP_GET, [](AsyncWebServerRequest *request)
             { bool isOk = send_lock_unlock_cmd(1);
               if(isOk)
               request->send(200, "text/html", "OK"); 
               else
               request->send(200, "text/html", "Error"); });
-  server.on("/door_unlock", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/unlock", HTTP_GET, [](AsyncWebServerRequest *request)
             { bool isOk = send_lock_unlock_cmd(2);
               if(isOk)
               request->send(200, "text/html", "OK"); 
@@ -1418,6 +1421,7 @@ void loop()
   // return;
   mainLoopCount++;
   unsigned long ms = millis();
+  dnsServer.processNextRequest();
   // #ifndef DUMMY_DATA
   checkCurrentGear(ms);
   checkConsumption(ms);

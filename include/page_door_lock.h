@@ -61,7 +61,8 @@ const char P_DOOR_PAGE[] PROGMEM = R"rawliteral(
 
   <script>
     function sendCommand(cmd) {
-      fetch('/door_' + cmd )
+    document.getElementById('status').innerText ="*";
+      fetch('/' + cmd )
         .then(res => res.text())
         .then(text => {
           document.getElementById('status').innerText = 'Status: ' + text;
