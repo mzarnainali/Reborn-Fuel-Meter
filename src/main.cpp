@@ -102,6 +102,10 @@ typedef struct LCD_Data
   int trip_price;
   float speed;
   float outSideTemp;
+  uint16_t rpm;
+  uint16_t  inj_timing;
+  float duty_cycle;
+  float inj_freq;
 } LCD_Data;
 
 typedef struct Door_Data
@@ -184,13 +188,13 @@ float lph = 0.0f;
 float speed = 0.0f;
 float prvSpeed = 0.0f;
 float acceleration = 0.0f;
-uint32_t inj_timing = 0;
+uint16_t inj_timing = 0;
 float duty_cycle = 0.0f;
 uint64_t trip_totalInjectionMs = 0;
 float inst_kml = 0.0f;
 int rpm = 0;
 int prvRpm = 0;
-uint_fast16_t injectorRPM = 0;
+uint16_t injectorRPM = 0;
 float vss1_pulses = 0.0f;
 int vss1_outPut = 0;
 float g_force = 0.0f;
@@ -228,8 +232,8 @@ const float alpha = 0.2;
 float ZsmoothedValue = 0;
 
 unsigned long lastConsumptionCheck = 0;
+unsigned long dataUpdateInterval = 100UL;
 
-int dataUpdateInterval = 100;
 String jsonData = "";
 bool updateJson = true;
 bool checkConsumptionWeb = true;
@@ -410,6 +414,10 @@ void send_data_to_lcd(unsigned long current_lcd_print = millis())
     lcdData.trip_price = trips[currentTrip].getFuelPrice();
     lcdData.speed = current_speed;
     lcdData.outSideTemp = outSideTempC;
+    lcdData.rpm = rpm;
+    lcdData.inj_timing = inj_timing;
+    lcdData.duty_cycle = duty_cycle;
+    lcdData.inj_freq = inj_freq;
     result = esp_now_send(broadcastAddress, (uint8_t *)&lcdData, lcdDataSize);
 
 #if DEBUG
@@ -706,6 +714,7 @@ void checkConsumption(unsigned long currentMillis = millis())
     lastConsumptionCheck = currentMillis;
     current_speed = trip.getKmh();
     rpm = trip.getRpm(); // trip.getRpmCrank();
+    injectorRPM = rpm;
     lph = trip.getLph();
     speed = round(current_speed);
     inst_kml = (speed > 0 && lph > 0) ? (speed / lph) : 0;
@@ -726,14 +735,17 @@ void checkConsumption(unsigned long currentMillis = millis())
       trips[i].fuel = _ltr;
     }
     vss1_pulses = trip.getVel();
-    if (checkConsumptionWeb)
+    //if (checkConsumptionWeb)
     {
       checkConsumptionWeb = false;
-      injectorRPM = trip.getRpm();
+      //injectorRPM = trip.getRpm();
       trip_totalInjectionMs = trip.getTotalInjectionMs();
       inj_timing = trip.getInjectionTime();
       inj_freq = trip.getInjFreq();
       duty_cycle = (trip.getDuty() * 100);
+      if(duty_cycle == 0){
+        inj_timing = 0;
+      }
     }
 
     if (engineStartTime == 0 && rpm > 500)
