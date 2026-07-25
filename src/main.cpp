@@ -28,7 +28,7 @@
 #include <Arduino_JSON.h>
 #include <Preferences.h>
 #include "Wire.h"
-#include <MPU6050_light.h>
+//#include <MPU6050_light.h>
 // #include <Smoothed.h>
 #include <esp_now.h>
 // #include <Ticker.h>
@@ -72,6 +72,14 @@ bool debug = true;
 bool isAccelerationOk = false;
 bool isRTC_Connected = false;
 float outSideTempC = 0.0f;
+
+unsigned long activeMovingTimeMs = 0; // Tracks only time spent moving
+float avgSpeedKmh = 0.0;
+unsigned long totalIdleTimeMs = 0;
+float idle_fuel = 0.0;
+float lastFuelLiters = 0.0;
+bool isFirstRun = true;
+
 static Trip trip;
 RTC_DS3231 rtc;
 AsyncWebServer server(80);
@@ -99,13 +107,17 @@ typedef struct LCD_Data
   float trip_distance;
   float trip_avg;
   float trip_fuel;
+  float trip_idle_fuel;
   int trip_price;
   float speed;
+  int avg_speed;
   float outSideTemp;
   uint16_t rpm;
-  uint16_t  inj_timing;
+  uint16_t inj_timing;
   float duty_cycle;
   float inj_freq;
+  unsigned long trip_RunTime;
+  unsigned long trip_idle_RunTime;
 } LCD_Data;
 
 typedef struct Door_Data
@@ -124,8 +136,16 @@ struct TripData
 {
   float distance;
   float fuel;
+  float idle_fuel;
+  long runTime;
+  long idle_runTime;
+  //
   float savedDistance;
   float savedFuel;
+  float saved_idle_fuel;
+  long saved_runTime;
+  long saved_idle_runTime;
+
   // Function to calculate the average
   float getAverage() const
   {
@@ -144,17 +164,57 @@ struct TripData
     return distance + savedDistance;
   }
 
+  int getAverageSpeed() const
+  {
+    unsigned long totalTimeMs = runTime + saved_runTime;
+
+    if (totalTimeMs > 0)
+    {
+      // Correctly convert milliseconds to hours by dividing by 3,600,000
+      float totalTimeHours = (float)totalTimeMs / 3600000.0f;
+      float totalDistanceKm = distance + savedDistance;
+
+      return (int)(totalDistanceKm / totalTimeHours);
+    }
+
+    return 0; // Prevent division by zero
+  }
+
+  float getIdleFuel() const
+  {
+    return idle_fuel + saved_idle_fuel;
+  }
+
   float getFuel() const
   {
     return fuel + savedFuel;
   }
 
+  long getRunTime() const
+  {
+    return runTime + saved_runTime;
+  }
+
+  long getIdleRunTime() const
+  {
+    return idle_runTime + saved_idle_runTime;
+  }
+
   void reset()
   {
-    distance = 0.0;
-    fuel = 0;
-    savedDistance = 0;
-    savedFuel = 0;
+    // Reset active trip metrics
+    distance = 0.0f;
+    fuel = 0.0f;
+    idle_fuel = 0.0f;
+    runTime = 0L;
+    idle_runTime = 0L;
+
+    // Reset saved/historical trip metrics
+    savedDistance = 0.0f;
+    savedFuel = 0.0f;
+    saved_idle_fuel = 0.0f;
+    saved_runTime = 0L;
+    saved_idle_runTime = 0L;
   }
 };
 
@@ -218,7 +278,7 @@ long current_time = 0;
 unsigned long lastSpeedSpoof = 0;
 int oldSpoofValue = 0;
 
-MPU6050 mpu(Wire);
+//MPU6050 mpu(Wire);
 Preferences preferences;
 
 int a = 0;
@@ -270,25 +330,47 @@ void resetTrip(uint8_t tripNo)
   float _ltr = trip.getLiters();
   trip.resetKm();
   trip.resetLiters();
+  idle_fuel = 0.0f;
+  activeMovingTimeMs = 0;
+  totalIdleTimeMs = 0;
+
   preferences.begin("zApp", false);
   for (uint8_t i = 0; i <= totalTrips; i++)
   {
     String fuelKey = "trip" + String(i) + "_fuel"; // Generate key dynamically
     String distanceKey = "trip" + String(i) + "_distance";
+    String runTimeKey = "trip" + String(i) + "_run_time";
+    String  idleFuelKey = "trip" + String(i) + "_idle_fuel";
+    String  idleRunTimeKey = "trip" + String(i) + "_idle_time";
+
+
     if (tripNo == i)
     {
       preferences.putFloat(fuelKey.c_str(), 0);
       preferences.putFloat(distanceKey.c_str(), 0);
+      preferences.putULong(runTimeKey.c_str(), 0);
+      preferences.putFloat(idleFuelKey.c_str(), 0);
+      preferences.putULong(idleRunTimeKey.c_str(), 0);
       trips[i].reset();
     }
     else
     {
       preferences.putFloat(fuelKey.c_str(), trips[i].getFuel());
       preferences.putFloat(distanceKey.c_str(), trips[i].getDistance());
+      preferences.putULong(runTimeKey.c_str(), trips[i].getRunTime());
+      preferences.putFloat(idleFuelKey.c_str(), trips[i].getIdleFuel());
+      preferences.putULong(idleRunTimeKey.c_str(), trips[i].getIdleRunTime());
       trips[i].savedDistance = trips[i].getDistance();
       trips[i].savedFuel = trips[i].getFuel();
+      trips[i].saved_runTime = trips[i].getRunTime();
+      trips[i].saved_idle_fuel = trips[i].getIdleFuel();
+      trips[i].saved_idle_runTime = trips[i].getIdleRunTime();
+
       trips[i].fuel = 0;
       trips[i].distance = 0;
+      trips[i].runTime = 0;
+      trips[i].idle_fuel = 0;
+      trips[i].idle_runTime = 0;
     }
   }
   preferences.end();
@@ -411,13 +493,18 @@ void send_data_to_lcd(unsigned long current_lcd_print = millis())
     lcdData.trip_distance = trips[currentTrip].getDistance();
     lcdData.trip_avg = trips[currentTrip].getAverage();
     lcdData.trip_fuel = trips[currentTrip].getFuel();
+    lcdData.trip_idle_fuel = trips[currentTrip].getIdleFuel();
     lcdData.trip_price = trips[currentTrip].getFuelPrice();
     lcdData.speed = current_speed;
+    lcdData.avg_speed = trips[currentTrip].getAverageSpeed();
     lcdData.outSideTemp = outSideTempC;
     lcdData.rpm = rpm;
     lcdData.inj_timing = inj_timing;
     lcdData.duty_cycle = duty_cycle;
     lcdData.inj_freq = inj_freq;
+    lcdData.trip_RunTime = trips[currentTrip].getRunTime();
+    lcdData.trip_idle_RunTime = trips[currentTrip].getIdleRunTime();
+
     result = esp_now_send(broadcastAddress, (uint8_t *)&lcdData, lcdDataSize);
 
 #if DEBUG
@@ -447,7 +534,7 @@ unsigned long last_dummy_data = 0;
 void dummy_data()
 {
   unsigned long current_millis = millis();
-  if (current_millis - last_dummy_data >= (500 / lcd_refresh_rate))
+  if (current_millis - last_dummy_data >= (1000 / lcd_refresh_rate))
   {
     last_dummy_data = current_millis;
     // Generate random data for variables
@@ -577,7 +664,7 @@ String milli2Time(unsigned long totMillis)
   // Return the formatted time
   return tm;
 }
-
+/*
 long lastAccelerationCheck = 0;
 void AccelerationCheck(unsigned long currentMillis = millis())
 {
@@ -601,6 +688,7 @@ void AccelerationCheck(unsigned long currentMillis = millis())
     //  g_force = accelerationData.get();
   }
 }
+*/
 
 void checkCurrentGear(unsigned long currentMillis = millis())
 {
@@ -710,7 +798,7 @@ void checkConsumption(unsigned long currentMillis = millis())
   currentMillis = millis();
   if (currentMillis - lastConsumptionCheck >= dataUpdateInterval)
   {
-    // float deltaTime = (currentMillis - lastConsumptionCheck) / 1000.0;
+    float deltaTime = (currentMillis - lastConsumptionCheck);
     lastConsumptionCheck = currentMillis;
     current_speed = trip.getKmh();
     rpm = trip.getRpm(); // trip.getRpmCrank();
@@ -729,21 +817,53 @@ void checkConsumption(unsigned long currentMillis = millis())
     float _km = trip.getKm();
     float _ltr = trip.getLiters();
 
+    float deltaFuelLiters = _ltr - lastFuelLiters;
+    lastFuelLiters = _ltr;
+    if (rpm > 500)
+    {
+      if (current_speed > 0.5)
+      {
+        activeMovingTimeMs += deltaTime;
+      }
+      else
+      {
+        totalIdleTimeMs += deltaTime;
+        if (deltaFuelLiters > 0.0)
+        {
+          idle_fuel += deltaFuelLiters; // Accumulate idle fuel usage
+        }
+      }
+
+      float movingTimeHours = (float)activeMovingTimeMs / 3600000.0;
+      if (movingTimeHours > 0.0)
+      {
+        avgSpeedKmh = _km / movingTimeHours;
+      }
+      else
+      {
+        avgSpeedKmh = 0.0;
+      }
+    }
+
     for (int i = 0; i <= totalTrips; i++)
     {
       trips[i].distance = _km;
       trips[i].fuel = _ltr;
+      trips[i].idle_fuel = idle_fuel;
+      trips[i].runTime = activeMovingTimeMs;
+      trips[i].idle_runTime = totalIdleTimeMs;
     }
     vss1_pulses = trip.getVel();
-    //if (checkConsumptionWeb)
+    // if (checkConsumptionWeb)
     {
       checkConsumptionWeb = false;
-      //injectorRPM = trip.getRpm();
+      // injectorRPM = trip.getRpm();
       trip_totalInjectionMs = trip.getTotalInjectionMs();
       inj_timing = trip.getInjectionTime();
       inj_freq = trip.getInjFreq();
       duty_cycle = (trip.getDuty() * 100);
-      if(duty_cycle == 0){
+      if (duty_cycle == 0)
+      {
         inj_timing = 0;
       }
     }
@@ -767,9 +887,16 @@ void checkConsumption(unsigned long currentMillis = millis())
         for (int i = 0; i <= totalTrips; i++)
         {
           String fuelKey = "trip" + String(i) + "_fuel"; // Generate key dynamically
+          String idleFuelKey = "trip" + String(i) + "_idle_fuel";
           String distanceKey = "trip" + String(i) + "_distance";
+          String runTimeKey = "trip" + String(i) + "_run_time";
+          String idleRunTimeKey = "trip" + String(i) + "_idle_time";
+
           preferences.putFloat(fuelKey.c_str(), trips[i].getFuel());
           preferences.putFloat(distanceKey.c_str(), trips[i].getDistance());
+          preferences.putFloat(idleFuelKey.c_str(), trips[i].getIdleFuel());
+          preferences.putULong(runTimeKey.c_str(), trips[i].getRunTime());
+          preferences.putULong(idleRunTimeKey.c_str(), trips[i].getIdleRunTime());
         }
         //  DateTime now = rtc.now();
         //  D_print("Saving last Time: ");
@@ -781,8 +908,168 @@ void checkConsumption(unsigned long currentMillis = millis())
   }
 }
 
+// Call this function inside your void loop() instead of reading real pins/sensors
+void simulateCarData() 
+{
+  static unsigned long lastSimStep = 0;
+  static int state = 0; // 0: Idle, 1: Accelerating, 2: Cruising, 3: Decelerating/Stopping
+  
+  unsigned long currentMillis = millis();
+
+  // Change simulation state every 10 seconds
+  if (currentMillis - lastSimStep >= 5000) 
+  {
+    float deltaTime = (currentMillis - lastSimStep);
+    lastSimStep = currentMillis;
+    state = (state + 1) % 4; 
+  
+
+  // Simulate dynamic values based on the vehicle state
+  switch (state) 
+  {
+    case 0: // Engine Idling at Traffic Light
+      rpm = 800;
+      current_speed = 0.0;
+      lph = 0.8; // Low fuel burn at idle (~0.8 L/h)
+      break;
+
+    case 1: // Accelerating
+      rpm = 2500;
+      current_speed = 45.0;
+      lph = 8.5; // High fuel burn during acceleration
+      break;
+
+    case 2: // Highway Cruising
+      rpm = 2000;
+      current_speed = 80.0;
+      lph = 5.2; // Moderate, steady fuel consumption
+      break;
+
+    case 3: // Engine Off / Stopped
+      rpm = 0;
+      current_speed = 0.0;
+      lph = 0.0;
+      break;
+  }
+  
+    speed = round(current_speed);
+    inst_kml = (speed > 0 && lph > 0) ? (speed / lph) : 0;
+
+    /*float speedChange = current_speed - prvSpeed;
+    prvSpeed = current_speed;
+    acceleration = speedChange / deltaTime;
+    if (acceleration == 0)
+      g_force = 0;
+    else
+      g_force = acceleration / 9.81;*/
+    float _km = trip.getKm();
+    float _ltr = trip.getLiters();
+
+    float deltaFuelLiters = _ltr - lastFuelLiters;
+    lastFuelLiters = _ltr;
+    if (rpm > 500)
+    {
+      if (current_speed > 0.5)
+      {
+        activeMovingTimeMs += deltaTime;
+      }
+      else
+      {
+        totalIdleTimeMs += deltaTime;
+        if (deltaFuelLiters > 0.0)
+        {
+          idle_fuel += deltaFuelLiters; // Accumulate idle fuel usage
+        }
+      }
+
+      float movingTimeHours = (float)activeMovingTimeMs / 3600000.0;
+      if (movingTimeHours > 0.0)
+      {
+        avgSpeedKmh = _km / movingTimeHours;
+      }
+      else
+      {
+        avgSpeedKmh = 0.0;
+      }
+    }
+
+    for (int i = 0; i <= totalTrips; i++)
+    {
+      trips[i].distance = _km;
+      trips[i].fuel = _ltr;
+      trips[i].idle_fuel = idle_fuel;
+      trips[i].runTime = activeMovingTimeMs;
+      trips[i].idle_runTime = totalIdleTimeMs;
+    }
+    vss1_pulses = 1;
+    // if (checkConsumptionWeb)
+    {
+      checkConsumptionWeb = false;
+      // injectorRPM = trip.getRpm();
+      trip_totalInjectionMs =323423;
+      inj_timing = 233;
+      inj_freq = 12;
+      duty_cycle = 23;
+      if (duty_cycle == 0)
+      {
+        inj_timing = 0;
+      }
+    }
+
+    if (engineStartTime == 0 && rpm > 500)
+    {
+      engineStartTime = millis();
+      isTripNeedToSave = true;
+    }
+    else if (engineStartTime != 0 && rpm < 300)
+    {
+      engineEndTime = millis();
+      engineRunningTime = engineRunningTime + engineEndTime - engineStartTime;
+      // engineRunningTime = engineEndTime - engineStartTime;
+      engineStartTime = 0;
+
+      if (isTripNeedToSave)
+      {
+        Serial.println("Saving trip data...");
+        isTripNeedToSave = false;
+        preferences.begin("zApp", false);
+        for (int i = 0; i <= totalTrips; i++)
+        {
+          String fuelKey = "trip" + String(i) + "_fuel"; // Generate key dynamically
+          String idleFuelKey = "trip" + String(i) + "_idle_fuel";
+          String distanceKey = "trip" + String(i) + "_distance";
+          String runTimeKey = "trip" + String(i) + "_run_time";
+          String idleRunTimeKey = "trip" + String(i) + "_idle_time";
+          
+          Serial.println("Idle time "+String(trips[i].getIdleRunTime()));
+          preferences.putFloat(fuelKey.c_str(), trips[i].getFuel());
+          preferences.putFloat(distanceKey.c_str(), trips[i].getDistance());
+          preferences.putULong(runTimeKey.c_str(), trips[i].getRunTime());
+          preferences.putFloat(idleFuelKey.c_str(), trips[i].getIdleFuel());
+          preferences.putULong(idleRunTimeKey.c_str(), trips[i].getIdleRunTime());
+
+          
+          unsigned long savedIdleRunTime = preferences.getULong(idleRunTimeKey.c_str(), 0); // Default 0 if key doesn't exist
+        Serial.print(idleRunTimeKey);
+          Serial.println(" => After saving Idle time "+String(savedIdleRunTime));
+        
+        }
+        //  DateTime now = rtc.now();
+         // D_print("Saving last Time: ");
+          Serial.println("Saved trip data...");
+        //  D_println(current_time);
+        preferences.putULong("last_timestamp", current_time);
+        preferences.end();
+      }
+    }
+
+}
+
+}
+
 String getData()
 {
+  
   readings["gear"] = String(currentGear);
   readings["rpm2"] = String(injectorRPM);
   readings["rpm"] = String(rpm);
@@ -808,21 +1095,27 @@ String getData()
   readings["spoof_per"] = String(spoof_per);
   readings["totalInjectionUs"] = String(trip_totalInjectionMs);
   readings["last_timestamp"] = String(last_timestamp);
+  readings["fuel_rate"] = String(global_fuel_price, 2);
 
+  
   for (int i = 0; i <= totalTrips; i++)
   {
-    String fuelKey = "trip" + String(i) + "_fuel";
-    String distanceKey = "trip" + String(i) + "_distance";
-    String savedFuelKey = "trip" + String(i) + "_fuel";
-    String savedDistanceKey = "trip" + String(i) + "_distance";
 
     readings["trip" + String(i) + "_distance"] = String(trips[i].getDistance(), 4);
+    readings["trip" + String(i) + "_avg_speed"] = String(trips[i].getAverageSpeed(), 2);
     readings["trip" + String(i) + "_fuel"] = String(trips[i].getFuel(), 4);
+    readings["trip" + String(i) + "_idle_fuel"] = String(trips[i].getIdleFuel(), 4);
     readings["trip" + String(i) + "_fuel_price"] = String(trips[i].getFuelPrice());
-    readings["trip" + String(i) + "avg"] = String(trips[i].getAverage(), 2);
+    readings["trip" + String(i) + "_avg"] = String(trips[i].getAverage(), 2);
+    readings["trip" + String(i) + "_run_time"] = String(trips[i].getRunTime());
+    readings["trip" + String(i) + "_idle_time"] = String(trips[i].getIdleRunTime());
+     
 
     readings["trip" + String(i) + "_sDistance"] = String(trips[i].savedDistance);
     readings["trip" + String(i) + "_sFuel"] = String(trips[i].savedFuel, 4);
+    readings["trip" + String(i) + "_sIdleFuel"] = String(trips[i].saved_idle_fuel, 4);
+    readings["trip" + String(i) + "_sRunTime"] = String(trips [i].saved_runTime);
+    readings["trip" + String(i) + "_sIdleRunTime"] = String(trips[i].saved_idle_runTime);
   }
   jsonData = JSON.stringify(readings);
 
@@ -1090,11 +1383,11 @@ void setupServer()
   server.on("/fuel_price", HTTP_GET, [](AsyncWebServerRequest *request)
             {
       if (request->hasArg("val")) {
-        int val = request->arg("val").toInt();
+        float val = request->arg("val").toFloat();
         if (val > 0) {
           global_fuel_price = val;
           preferences.begin("zApp", false);
-          preferences.putInt("fuel_price", global_fuel_price);
+          preferences.putFloat("fuel_price", global_fuel_price);
           preferences.end();
         }
       }
@@ -1227,7 +1520,7 @@ void readSetting()
   spoof_per = preferences.getInt("spoof_per", 0);
   is_spoofing = preferences.getBool("is_spoofing", 0);
   last_timestamp = preferences.getULong("last_timestamp", 0);
-  global_fuel_price = preferences.getInt("fuel_price", 0);
+  global_fuel_price = preferences.getFloat("fuel_price", 0.0f);
   totalTrips = preferences.getInt("total_trip", 2);
   currentTrip = preferences.getInt("currentTrip", 0);
 
@@ -1238,10 +1531,25 @@ void readSetting()
   {
     String fuelKey = "trip" + String(i) + "_fuel"; // Generate key dynamically
     String distanceKey = "trip" + String(i) + "_distance";
+    String runTimeKey = "trip" + String(i) + "_run_time";
+    String idleFuelKey = "trip" + String(i) + "_idle_fuel";
+    String idleRunTimeKey = "trip" + String(i) + "_idle_time";
+
     trips[i].savedFuel = preferences.getFloat(fuelKey.c_str(), 0);
     trips[i].savedDistance = preferences.getFloat(distanceKey.c_str(), 0);
+    trips[i].saved_idle_fuel = preferences.getFloat(idleFuelKey.c_str(), 0);
+    trips[i].saved_runTime = preferences.getULong(runTimeKey.c_str(), 0);
+    trips[i].saved_idle_runTime = preferences.getULong(idleRunTimeKey.c_str(), 0);
+    
     trips[i].distance = 0.0;
     trips[i].fuel = 0.0;
+    trips[i].runTime = 0;
+    trips[i].idle_fuel = 0;
+    trips[i].idle_runTime = 0;
+
+    Serial.print(idleRunTimeKey);
+    Serial.println(" => reading saving Idle time "+String(trips[i].saved_idle_runTime));
+
     D_print(i);
     D_print("   => saved_fuel: ");
     D_print(trips[i].savedFuel);
@@ -1276,9 +1584,15 @@ void readSetting()
     D_println(now.unixtime());
     trips[0].savedFuel = 0;
     trips[0].savedDistance = 0;
+    trips[0].saved_runTime = 0;
+    trips[0].saved_idle_fuel = 0;
+    trips[0].saved_idle_runTime = 0;
 
     preferences.putFloat("trip0_fuel", trips[0].savedFuel);
     preferences.putFloat("trip0_distance", trips[0].savedDistance);
+    preferences.putULong("trip0_run_time", trips[0].saved_runTime);
+    preferences.putFloat("trip0_idle_fuel", trips[0].saved_idle_fuel);
+    preferences.putULong("trip0_idle_time", trips[0].saved_idle_runTime);
     if (isRTC_Connected)
     {
       preferences.putULong("last_timestamp", now.unixtime());
@@ -1291,7 +1605,7 @@ void readSetting()
   //   trip2_avg = 0;
   // }
 }
-
+/*
 void setupAccelerationSensor()
 {
 #if not ACCELERATION_ON
@@ -1311,6 +1625,7 @@ void setupAccelerationSensor()
     // accelerationData.clear();
   }
 }
+  */
 
 void setupPins()
 {
@@ -1392,6 +1707,7 @@ void setup()
 #endif
   unsigned long startTime = millis();
   D_SerialBegin(115200);
+ // Serial.begin(115200);
   delay(10);
   mainLoopCount = 0;
   setupPins();
@@ -1400,7 +1716,7 @@ void setup()
   readSetting();
   setupWIFI();
   setupServer();
-  setupAccelerationSensor();
+  //setupAccelerationSensor();
   setup_esp_now();
   setup_vss_output();
   tempSensor.begin();
@@ -1425,25 +1741,30 @@ void setup()
   D_print("Setup done in: ");
   D_print(setupTime);
   D_println(" milliseconds");
+
 }
 
 void loop()
 {
   // SpeedoMeterCheck();
   // return;
-  mainLoopCount++;
   unsigned long ms = millis();
+  mainLoopCount++;
+  //
   dnsServer.processNextRequest();
-  // #ifndef DUMMY_DATA
+
   checkCurrentGear(ms);
-  checkConsumption(ms);
-  AccelerationCheck(ms);
+   #if !DUMMY_DATA
+    checkConsumption(ms);
+   #endif
+  //AccelerationCheck(ms);
   checkTemp(ms);
   // #endif
 
-  // #if DUMMY_DATA
-  //  dummy_data();
-  // #endif
+   #if DUMMY_DATA
+    simulateCarData() ;
+    //dummy_data();
+   #endif
   send_data_to_lcd(ms);
   checkTime(ms);
   // SpoofSpeed(ms);
