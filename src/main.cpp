@@ -610,6 +610,7 @@ void handleUpdate(AsyncWebServerRequest *request, String filename, size_t index,
     if (!Update.begin(UPDATE_SIZE_UNKNOWN))
     {
       Update.printError(Serial);
+      return;
     }
   }
 
@@ -625,6 +626,7 @@ void handleUpdate(AsyncWebServerRequest *request, String filename, size_t index,
 #if DEBUG
       Serial.printf("Update Success: %uB\n", index + len);
 #endif
+     
       ESP.restart();
     }
     else
@@ -1289,7 +1291,7 @@ void setupServer()
       if (request->hasArg("val")) {
         int Speed = request->arg("val").toInt();
         if (Speed > 0) {
-          trip.VSS_PULSE_KM = 3600 / Speed * vss1_pulses;
+          trip.VSS_PULSE_KM = 3600.0f / Speed * vss1_pulses;
           preferences.begin("zApp", false);
           preferences.putFloat("VSS_PULSE_KM", trip.VSS_PULSE_KM);
           preferences.end();
@@ -1300,7 +1302,7 @@ void setupServer()
   server.on("/update_speed_raw", HTTP_GET, [](AsyncWebServerRequest *request)
             {
       if (request->hasArg("val")) {
-        int raw = request->arg("val").toFloat();
+        float raw = request->arg("val").toFloat();
         if (raw > 0) {
           trip.VSS_PULSE_KM = raw;
           preferences.begin("zApp", false);
@@ -1524,7 +1526,7 @@ void readSetting()
   totalTrips = preferences.getInt("total_trip", 2);
   currentTrip = preferences.getInt("currentTrip", 0);
 
-  totalTrips = (totalTrips < 1 || totalTrips > maxTrips) ? 2 : totalTrips;
+  totalTrips = (totalTrips < 1 || totalTrips >= maxTrips) ? 2 : totalTrips;
   currentTrip = (currentTrip < 1 || currentTrip > totalTrips) ? 0 : currentTrip;
 
   for (int i = 0; i <= totalTrips; i++)
@@ -1547,8 +1549,8 @@ void readSetting()
     trips[i].idle_fuel = 0;
     trips[i].idle_runTime = 0;
 
-    Serial.print(idleRunTimeKey);
-    Serial.println(" => reading saving Idle time "+String(trips[i].saved_idle_runTime));
+    //D_print(idleRunTimeKey);
+    //D_println(" => reading saving Idle time "+String(trips[i].saved_idle_runTime));
 
     D_print(i);
     D_print("   => saved_fuel: ");
@@ -1652,7 +1654,7 @@ void checkTime(long ms = millis())
   {
 
     lastRTC_Check = ms;
-    printTime(rtc.now());
+    //printTime(rtc.now());
     long _current_time = rtc.now().unixtime();
     if (_current_time > 0)
     {
@@ -1775,5 +1777,6 @@ void loop()
   }
 
   //   Allow the ESP32 to handle interrupts and other tasks
-  delay(0);
+  //delay(0);
+  delay(1);
 }

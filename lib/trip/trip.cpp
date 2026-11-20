@@ -194,7 +194,8 @@ void IRAM_ATTR Trip::updateTripCrankISR(void *)
  *
  * @return the current engine RPM
  */
-uint_fast16_t Trip::getRpm(void) { return (this->latestInjectionPeriod > 0 && esp_timer_get_time() - this->injOpenTimestamp < INJ_DELTA_MAX) ? 60000000 / this->latestInjectionPeriod * 2 : 0; }
+//uint_fast16_t Trip::getRpm(void) { return (this->latestInjectionPeriod > 0 && esp_timer_get_time() - this->injOpenTimestamp < INJ_DELTA_MAX) ? 60000000 / this->latestInjectionPeriod * 2 : 0; }
+uint_fast16_t Trip::getRpm(void) { return (this->latestInjectionPeriod > 0 && esp_timer_get_time() - this->injOpenTimestamp < INJ_DELTA_MAX) ? 120000000UL  / this->latestInjectionPeriod : 0; }
 
 uint_fast16_t Trip::getRpmCrank(void) { return (this->lastCrankFinalPeriod > 0 && esp_timer_get_time() - this->lastCrankFinalTimestamp < CRANK_DELTA_MAX) ? 60000000 / this->lastCrankFinalPeriod : 0; }
 /**
